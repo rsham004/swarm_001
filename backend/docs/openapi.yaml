@@ -1,0 +1,991 @@
+openapi: 3.0.3
+info:
+  title: Swarm Coordination Mastery Platform API
+  description: |
+    REST API for the Swarm Coordination Mastery learning platform.
+    Provides endpoints for user authentication, course management, content delivery, and progress tracking.
+  version: 1.0.0
+  contact:
+    name: Swarm Learning Platform
+    email: support@swarmlearning.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: https://api.swarmlearning.com/v1
+    description: Production server
+  - url: https://api-staging.swarmlearning.com/v1
+    description: Staging server
+  - url: http://localhost:3000/api/v1
+    description: Development server
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token for authentication
+
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique user identifier
+        email:
+          type: string
+          format: email
+          description: User email address
+        role:
+          type: string
+          enum: [student, instructor, admin, enterprise]
+          description: User role
+        profile:
+          type: object
+          properties:
+            firstName:
+              type: string
+              description: User's first name
+            lastName:
+              type: string
+              description: User's last name
+            organization:
+              type: string
+              description: User's organization
+            timezone:
+              type: string
+              description: User's timezone
+            avatarUrl:
+              type: string
+              format: uri
+              description: User's avatar image URL
+        subscription:
+          $ref: '#/components/schemas/Subscription'
+        createdAt:
+          type: string
+          format: date-time
+          description: Account creation timestamp
+        updatedAt:
+          type: string
+          format: date-time
+          description: Last update timestamp
+
+    Subscription:
+      type: object
+      properties:
+        plan:
+          type: string
+          enum: [free, pro, enterprise]
+          description: Subscription plan
+        status:
+          type: string
+          enum: [active, cancelled, expired, trial]
+          description: Subscription status
+        currentPeriodEnd:
+          type: string
+          format: date-time
+          description: Current billing period end date
+        trialEnd:
+          type: string
+          format: date-time
+          description: Trial period end date
+
+    Course:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique course identifier
+        title:
+          type: string
+          description: Course title
+        description:
+          type: string
+          description: Course description
+        level:
+          type: string
+          enum: [beginner, intermediate, advanced]
+          description: Course difficulty level
+        duration:
+          type: integer
+          description: Course duration in minutes
+        prerequisites:
+          type: array
+          items:
+            type: string
+            format: uuid
+          description: Required prerequisite course IDs
+        isPublished:
+          type: boolean
+          description: Whether course is published
+        isFree:
+          type: boolean
+          description: Whether course is free
+        thumbnailUrl:
+          type: string
+          format: uri
+          description: Course thumbnail image URL
+        slug:
+          type: string
+          description: URL-friendly course identifier
+        createdAt:
+          type: string
+          format: date-time
+          description: Course creation timestamp
+        updatedAt:
+          type: string
+          format: date-time
+          description: Last update timestamp
+
+    Module:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique module identifier
+        courseId:
+          type: string
+          format: uuid
+          description: Parent course ID
+        title:
+          type: string
+          description: Module title
+        description:
+          type: string
+          description: Module description
+        orderIndex:
+          type: integer
+          description: Module order within course
+        duration:
+          type: integer
+          description: Module duration in minutes
+        prerequisites:
+          type: array
+          items:
+            type: string
+            format: uuid
+          description: Required prerequisite module IDs
+
+    Lesson:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique lesson identifier
+        moduleId:
+          type: string
+          format: uuid
+          description: Parent module ID
+        title:
+          type: string
+          description: Lesson title
+        description:
+          type: string
+          description: Lesson description
+        content:
+          type: string
+          description: Lesson content in markdown
+        orderIndex:
+          type: integer
+          description: Lesson order within module
+        duration:
+          type: integer
+          description: Lesson duration in minutes
+        videoUrl:
+          type: string
+          format: uri
+          description: Lesson video URL
+        requiresAssessment:
+          type: boolean
+          description: Whether lesson requires assessment completion
+
+    UserProgress:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique progress identifier
+        userId:
+          type: string
+          format: uuid
+          description: User ID
+        courseId:
+          type: string
+          format: uuid
+          description: Course ID
+        moduleId:
+          type: string
+          format: uuid
+          description: Module ID (optional)
+        lessonId:
+          type: string
+          format: uuid
+          description: Lesson ID (optional)
+        status:
+          type: string
+          enum: [not_started, in_progress, completed]
+          description: Progress status
+        completionPercentage:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 100
+          description: Completion percentage
+        timeSpent:
+          type: integer
+          description: Time spent in seconds
+        score:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 100
+          description: Score percentage
+        startedAt:
+          type: string
+          format: date-time
+          description: Start timestamp
+        completedAt:
+          type: string
+          format: date-time
+          description: Completion timestamp
+
+    Assessment:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique assessment identifier
+        title:
+          type: string
+          description: Assessment title
+        description:
+          type: string
+          description: Assessment description
+        type:
+          type: string
+          enum: [quiz, assignment, project, exam]
+          description: Assessment type
+        questions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Question'
+          description: Assessment questions
+        passingScore:
+          type: integer
+          minimum: 0
+          maximum: 100
+          description: Minimum passing score percentage
+        maxAttempts:
+          type: integer
+          minimum: 1
+          description: Maximum attempts allowed
+        timeLimitMinutes:
+          type: integer
+          description: Time limit in minutes
+
+    Question:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Question identifier
+        type:
+          type: string
+          enum: [multiple_choice, true_false, short_answer, essay]
+          description: Question type
+        question:
+          type: string
+          description: Question text
+        options:
+          type: array
+          items:
+            type: string
+          description: Answer options (for multiple choice)
+        correctAnswer:
+          type: string
+          description: Correct answer
+        points:
+          type: integer
+          minimum: 1
+          description: Points awarded for correct answer
+
+    ContentAccess:
+      type: object
+      properties:
+        hasAccess:
+          type: boolean
+          description: Whether user has access to content
+        code:
+          type: string
+          description: Access result code
+        message:
+          type: string
+          description: Human-readable message
+        metadata:
+          type: object
+          description: Additional access information
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+              description: Error code
+            message:
+              type: string
+              description: Error message
+            details:
+              type: object
+              description: Additional error details
+            timestamp:
+              type: string
+              format: date-time
+              description: Error timestamp
+
+paths:
+  # Authentication Endpoints
+  /auth/login:
+    post:
+      summary: User login
+      description: Authenticate user and return JWT tokens
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  format: password
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accessToken:
+                    type: string
+                    description: JWT access token
+                  refreshToken:
+                    type: string
+                    description: JWT refresh token
+                  user:
+                    $ref: '#/components/schemas/User'
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/register:
+    post:
+      summary: User registration
+      description: Register a new user account
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+                - firstName
+                - lastName
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  format: password
+                  minLength: 8
+                firstName:
+                  type: string
+                lastName:
+                  type: string
+                organization:
+                  type: string
+      responses:
+        '201':
+          description: Registration successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  userId:
+                    type: string
+                    format: uuid
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/refresh:
+    post:
+      summary: Refresh access token
+      description: Get new access token using refresh token
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - refreshToken
+              properties:
+                refreshToken:
+                  type: string
+      responses:
+        '200':
+          description: Token refresh successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accessToken:
+                    type: string
+        '401':
+          description: Invalid refresh token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/logout:
+    post:
+      summary: User logout
+      description: Invalidate user session and tokens
+      tags:
+        - Authentication
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Logout successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+
+  # Course Management Endpoints
+  /courses:
+    get:
+      summary: Get courses
+      description: Retrieve list of courses with optional filtering
+      tags:
+        - Courses
+      parameters:
+        - name: level
+          in: query
+          schema:
+            type: string
+            enum: [beginner, intermediate, advanced]
+          description: Filter by course level
+        - name: published
+          in: query
+          schema:
+            type: boolean
+          description: Filter by published status
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          description: Number of courses to return
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+          description: Number of courses to skip
+      responses:
+        '200':
+          description: Courses retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  courses:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Course'
+                  total:
+                    type: integer
+                  limit:
+                    type: integer
+                  offset:
+                    type: integer
+
+    post:
+      summary: Create course
+      description: Create a new course
+      tags:
+        - Courses
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - title
+                - description
+                - level
+                - duration
+              properties:
+                title:
+                  type: string
+                description:
+                  type: string
+                level:
+                  type: string
+                  enum: [beginner, intermediate, advanced]
+                duration:
+                  type: integer
+                prerequisites:
+                  type: array
+                  items:
+                    type: string
+                    format: uuid
+                isPublished:
+                  type: boolean
+                  default: false
+                isFree:
+                  type: boolean
+                  default: false
+      responses:
+        '201':
+          description: Course created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Course'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Insufficient permissions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /courses/{courseId}:
+    get:
+      summary: Get course details
+      description: Retrieve detailed information about a specific course
+      tags:
+        - Courses
+      parameters:
+        - name: courseId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Course identifier
+      responses:
+        '200':
+          description: Course details retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Course'
+        '404':
+          description: Course not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /courses/{courseId}/enroll:
+    post:
+      summary: Enroll in course
+      description: Enroll the authenticated user in a course
+      tags:
+        - Courses
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: courseId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Course identifier
+      responses:
+        '201':
+          description: Enrollment successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  enrollmentId:
+                    type: string
+                    format: uuid
+        '400':
+          description: Already enrolled or access denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # Content Access Endpoints
+  /content/access/{contentId}:
+    get:
+      summary: Check content access
+      description: Check if user has access to specific content
+      tags:
+        - Content
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: contentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Content identifier
+        - name: contentType
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [course, module, lesson]
+          description: Type of content
+      responses:
+        '200':
+          description: Access check completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContentAccess'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /content/lessons/{lessonId}:
+    get:
+      summary: Get lesson content
+      description: Retrieve lesson content and media
+      tags:
+        - Content
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: lessonId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Lesson identifier
+      responses:
+        '200':
+          description: Lesson content retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Lesson'
+        '403':
+          description: Content access denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Lesson not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # Progress Tracking Endpoints
+  /progress/user/{userId}:
+    get:
+      summary: Get user progress
+      description: Retrieve user's learning progress across all courses
+      tags:
+        - Progress
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: User identifier
+        - name: courseId
+          in: query
+          schema:
+            type: string
+            format: uuid
+          description: Filter by specific course
+      responses:
+        '200':
+          description: Progress retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  progress:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/UserProgress'
+                  summary:
+                    type: object
+                    properties:
+                      totalCourses:
+                        type: integer
+                      completedCourses:
+                        type: integer
+                      totalTimeSpent:
+                        type: integer
+                      averageScore:
+                        type: number
+                        format: float
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Access denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /progress/track:
+    post:
+      summary: Track progress
+      description: Update user's progress for a specific content item
+      tags:
+        - Progress
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - courseId
+                - status
+              properties:
+                courseId:
+                  type: string
+                  format: uuid
+                moduleId:
+                  type: string
+                  format: uuid
+                lessonId:
+                  type: string
+                  format: uuid
+                status:
+                  type: string
+                  enum: [not_started, in_progress, completed]
+                timeSpent:
+                  type: integer
+                  description: Time spent in seconds
+                score:
+                  type: number
+                  format: float
+                  minimum: 0
+                  maximum: 100
+      responses:
+        '200':
+          description: Progress updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProgress'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # Assessment Endpoints
+  /assessments/{assessmentId}:
+    get:
+      summary: Get assessment
+      description: Retrieve assessment questions and configuration
+      tags:
+        - Assessments
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: assessmentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Assessment identifier
+      responses:
+        '200':
+          description: Assessment retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Assessment'
+        '403':
+          description: Access denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Assessment not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /assessments/{assessmentId}/submit:
+    post:
+      summary: Submit assessment
+      description: Submit answers for an assessment
+      tags:
+        - Assessments
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: assessmentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Assessment identifier
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - answers
+              properties:
+                answers:
+                  type: object
+                  description: Question ID to answer mapping
+                  additionalProperties:
+                    type: string
+                startedAt:
+                  type: string
+                  format: date-time
+                  description: When assessment was started
+      responses:
+        '200':
+          description: Assessment submitted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  score:
+                    type: number
+                    format: float
+                  passed:
+                    type: boolean
+                  feedback:
+                    type: string
+                  submissionId:
+                    type: string
+                    format: uuid
+        '400':
+          description: Invalid submission
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: Authentication
+    description: User authentication and session management
+  - name: Courses
+    description: Course management and enrollment
+  - name: Content
+    description: Content access and delivery
+  - name: Progress
+    description: Learning progress tracking
+  - name: Assessments
+    description: Assessments and submissions
